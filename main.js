@@ -129,12 +129,6 @@ function worldToGeometry(){
                 const pz = World.worldData[x][Math.min(z+1,worldDepth-1)].includes(y);
                 const nz = World.worldData[x][Math.max(z-1,0)].includes(y);
 
-                // if (y===0){
-                //     console.log(`y = ${y}`)
-                //     console.log(`${px}, ${nx}, ${py}, ${ny}, ${pz}, ${nz}`)
-                //     console.log(`${World.worldData[Math.min(x+1,worldWidth-1)][z]}`)
-                // }
-
                 if (!px||x===worldWidth-1){
                     geometries.push( pxGeometry.clone().applyMatrix4( matrix ) );
                 }
