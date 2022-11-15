@@ -1,18 +1,25 @@
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 
 class World{
+    static worldWidth;
+    static worldDepth;
+    static worldHalfWidth;
+    static worldHalfDepth;
+    static heightData;
+    static worldData;
 
-    constructor(worldWidth, worldDepth){
-        this.worldWidth = worldWidth;
-        this.worldDepth = worldDepth;
-        this.worldHalfWidth = worldWidth / 2;
-        this.worldHalfDepth = worldDepth / 2;
-        this.data = generateHeight( worldWidth, worldDepth );
+    static init(worldWidth, worldDepth){
+        World.worldWidth = worldWidth;
+        World.worldDepth = worldDepth;
+        World.worldHalfWidth = worldWidth / 2;
+        World.worldHalfDepth = worldDepth / 2;
+        World.heightData = World.generateHeight( worldWidth, worldDepth );
+        World.worldData = World.generateWorld();
     }
 
         
 
-    generateHeight( width, height ) {
+    static generateHeight( width, height ) {
 
         const data = [], perlin = new ImprovedNoise(),
             size = width * height, z = Math.random() * 100;
@@ -39,10 +46,22 @@ class World{
     
     }
     
-    getY( x, z ) {
+    static getY( x, z ) {
     
-        return ( this.data[ x + z * worldWidth ] * 0.15 ) | 0;
+        return ( World.heightData[ x + z * World.worldWidth ] * 0.15 ) | 0;
     
+    }
+
+    static generateWorld(){
+        const data = [];
+        for ( let x = 0; x < World.worldWidth; x ++ ) {
+            data.push([]);
+            for ( let z = 0; z < World.worldDepth; z ++ ) {
+                data[x].push([]);
+                data[x][z].push(World.getY(x,z));
+            }
+        }
+        return data;
     }
 }
 
