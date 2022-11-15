@@ -65,11 +65,21 @@ function init() {
     renderer.setSize( window.innerWidth, window.innerHeight );
     container.appendChild( renderer.domElement );
 
-    // controls = new MyMinecraftControls( camera, renderer.domElement, scene, updateMeshCallback );
-    controls = new FirstPersonControls( camera, renderer.domElement );
+    controls = new MyMinecraftControls( camera, renderer.domElement, updateMeshCallback );
+    window.addEventListener("keydown", (event) => {
+        if (event.key === 'Escape'){
+            if (controls.isLocked){
+                controls.unlock();
+            }
+        }
+    })
+    container.onclick = ()=>{
+        if (!controls.isLocked){
+            controls.lock();
+        }
+    }
+    // controls = new FirstPersonControls( camera, renderer.domElement );
     controls.movementSpeed = 1000;
-    controls.lookSpeed = 0.125;
-    controls.lookVertical = true;
 
     stats = new Stats();
     container.appendChild( stats.dom );
@@ -178,7 +188,7 @@ function onWindowResize() {
 
     renderer.setSize( window.innerWidth, window.innerHeight );
 
-    controls.handleResize();
+    //controls.handleResize();
 
 }
 
