@@ -1,20 +1,26 @@
 import { ImprovedNoise } from 'three/addons/math/ImprovedNoise.js';
 
 class World{
-    static worldWidth;
-    static worldDepth;
+    static worldWidth; // x
+    static worldDepth; // z
+    static worldHeight; // y
     static worldHalfWidth;
     static worldHalfDepth;
+    static worldHalfHeight;
     static heightData;
-    static worldData;
+    static worldData; // 3D array of existance of blocks: [x][z] -> [y|y-coor of blocks in this vertical pilar of space]
+    static waterData; // 3D array of existance of water: [x][z] -> [y|y-coor of water blocks in this vertical pilar of space]
+    static seaLevel = -1;
 
-    static init(worldWidth, worldDepth){
+    static init(worldWidth, worldDepth, worldHeight){
         World.worldWidth = worldWidth;
         World.worldDepth = worldDepth;
+        World.worldHeight = worldHeight;
         World.worldHalfWidth = worldWidth / 2;
         World.worldHalfDepth = worldDepth / 2;
+        World.worldHalfHeight = worldHeight / 2;
         World.heightData = World.generateHeight( worldWidth, worldDepth );
-        World.worldData = World.generateWorld();
+        [World.worldData, World.waterData] = World.generateWorld();
     }
 
         
@@ -53,15 +59,124 @@ class World{
     }
 
     static generateWorld(){
-        const data = [];
+        const block_data = [];
+        const water_data = [];
         for ( let x = 0; x < World.worldWidth; x ++ ) {
-            data.push([]);
+            block_data.push([]);
+            water_data.push([]);
             for ( let z = 0; z < World.worldDepth; z ++ ) {
-                data[x].push([]);
-                data[x][z].push(World.getY(x,z));
+                block_data[x].push([]);
+                block_data[x][z].push(World.getY(x,z));
+
+                water_data[x].push([]);
+                for ( let i=World.getY(x,z)+1 ; i<this.seaLevel; i++){
+                    water_data[x][z].push(i);
+                }
             }
         }
-        return data;
+        return [block_data, water_data];
+    }
+
+    static isBlock(blockId){
+        return World.worldData[blockId.x][blockId.z].includes(blockId.y)
+    }
+
+    static isInWorldBoundary(vec3){
+        if (vec3.x>World.worldHalfWidth*100 || vec3.x<-World.worldHalfWidth*100) return false;
+        if (vec3.y>World.worldHalfHeight*100 || vec3.y<-World.worldHalfHeight*100) return false;
+        if (vec3.z>World.worldHalfDepth*100 || vec3.z<-World.worldHalfDepth*100) return false;
+        return true;
+    }
+
+    static distBetweenTwoWorldCoor(coor_1, coor_2){
+        return Math.sqrt(Math.pow((coor_1.x-coor_2.x),2) + Math.pow((coor_1.y-coor_2.y),2) + Math.pow((coor_1.z-coor_2.z),2))
+    }
+
+    static worldCoorToBlockId(vec3){
+        let x = Math.floor((vec3.x + World.worldHalfWidth * 100) / 100);
+        let y = Math.floor(vec3.y / 100);
+        let z = Math.floor((vec3.z + World.worldHalfWidth * 100) / 100);
+        return {"x":x, "y":y, "z":z}
+    }
+
+    static originAndDirToBlockId(origin, dir, plane_coor){
+        let temp = [origin, dir, plane_coor]
+        let x = plane_coor.x? plane_coor.x:null;
+        let y = plane_coor.y? plane_coor.y:null;
+        let z = plane_coor.z? plane_coor.z:null;
+        const signX = dir.x>=0; const signY = dir.y>=0; const signZ = dir.z>=0;
+        if(x){
+            let time = (x-origin.x) / dir.x;
+            if(isNaN(time)){
+                return null;
+            }
+            let y_coor = origin.y + time * dir.y;
+            let z_coor = origin.z + time * dir.z;
+            let dist = World.distBetweenTwoWorldCoor(origin, {"x":x, "y":y_coor, "z":z_coor});
+            if (signX){
+                if(World.isInWorldBoundary({"x":x+50, "y":y_coor, "z":z_coor})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x+50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "nx", "temp": temp, "coor": {"x":x, "y":y_coor, "z":z_coor}};
+                } else {
+                    return null;
+                }
+            } else{
+                if(World.isInWorldBoundary({"x":x-50, "y":y_coor, "z":z_coor})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x-50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "px", "temp": temp, "coor": {"x":x, "y":y_coor, "z":z_coor}};
+                } else {
+                    return null;
+                }
+            }
+        } else if (y){
+            let time = (y-origin.y) / dir.y;
+            if(isNaN(time)){
+                return null;
+            }
+            let x_coor = origin.x + time * dir.x;
+            let z_coor = origin.z + time * dir.z;
+            let dist = World.distBetweenTwoWorldCoor(origin, {"x":x_coor, "y":y, "z":z_coor});
+            if (signY){
+                if(World.isInWorldBoundary({"x":x_coor, "y":y+50, "z":z_coor})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y+50, "z":z_coor}), "dist":dist, "face": "ny", "temp": temp, "coor": {"x":x_coor, "y":y, "z":z_coor}};
+                } else {
+                    return null;
+                }
+            } else{
+                if(World.isInWorldBoundary({"x":x_coor, "y":y-50, "z":z_coor})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y-50, "z":z_coor}), "dist":dist, "face": "py", "temp": temp, "coor": {"x":x_coor, "y":y, "z":z_coor}};
+                } else {
+                    return null;
+                }
+            }
+        } else if (z){
+            let time = (z-origin.z) / dir.z;
+            if(isNaN(time)){
+                return null;
+            }
+            let x_coor = origin.x + time * dir.x;
+            let y_coor = origin.y + time * dir.y;
+            let dist = World.distBetweenTwoWorldCoor(origin, {"x":x_coor, "y":y_coor, "z":z})
+            if (signZ){
+                if(World.isInWorldBoundary({"x":x_coor, "y":y_coor, "z":z+50})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z+50}), "dist":dist, "face": "nz", "temp": temp, "coor": {"x":x_coor, "y":y_coor, "z":z}};
+                } else {
+                    return null;
+                }
+            } else{
+                if(World.isInWorldBoundary({"x":x_coor, "y":y_coor, "z":z-50})){
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z-50}), "dist":dist, "face": "pz", "temp": temp, "coor": {"x":x_coor, "y":y_coor, "z":z}};
+                } else {
+                    return null;
+                }
+            }
+        }
+    }
+
+    static destroyBlock(blockId){
+
+    }
+
+    static createBlick(blockId){
+
     }
 }
 

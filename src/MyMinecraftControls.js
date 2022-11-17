@@ -1,7 +1,7 @@
 import {
 	Euler,
 	EventDispatcher,
-	Vector3
+	Vector3,
 } from 'three';
 
 const _euler = new Euler( 0, 0, 0, 'YXZ' );
@@ -13,9 +13,11 @@ const _unlockEvent = { type: 'unlock' };
 
 const _PI_2 = Math.PI / 2;
 
+import { World } from './World.js'
+
 class MyMinecraftControls extends EventDispatcher {
 
-	constructor( camera, domElement, updateMeshCallback ) {
+	constructor( camera, domElement, updateMeshCallback, updateSelectBlockCallback) {
 
         /**
          * Borrowed and modified from PointerLockControls.js
@@ -156,7 +158,6 @@ class MyMinecraftControls extends EventDispatcher {
          this.enabled = true;
 
          this.movementSpeed = 1.0;
-         this.activeLook = true;
 
          this.moveForward = false;
          this.moveBackward = false;
@@ -214,40 +215,135 @@ class MyMinecraftControls extends EventDispatcher {
                 if ( this.enabled === false ) return;
 
                 const actualMoveSpeed = delta * this.movementSpeed;
-				if ( this.moveForward && this.isLocked ) {
-                    let prev_y = this.camera.position.y
-                    this.camera.translateZ( - ( actualMoveSpeed ) );
-                    this.camera.position.setY(prev_y)
+				let prev_x = this.camera.position.x;
+				let prev_z = this.camera.position.z;
+				let camera_direction = new Vector3();
+				this.camera.getWorldDirection(camera_direction);
+				let camera_left_direction_2d = new Vector3(-camera_direction.z, 0, camera_direction.x);
+				let horizontal_norm = Math.sqrt( Math.pow(camera_direction.x, 2) + Math.pow(camera_direction.z, 2) );
+				let x_speed = 0;
+				let z_speed = 0;
+
+				if ( this.moveForward && this.isLocked && horizontal_norm > 0.01 ) {
+                    z_speed += actualMoveSpeed/horizontal_norm*camera_direction.z;
+					x_speed += actualMoveSpeed/horizontal_norm*camera_direction.x;
                 }
-				if ( this.moveBackward && this.isLocked) {
-                    let prev_y = this.camera.position.y
-                    this.camera.translateZ( actualMoveSpeed );
-                    this.camera.position.setY(prev_y)
+				if ( this.moveBackward && this.isLocked && horizontal_norm > 0.01 ) {
+                    z_speed -= actualMoveSpeed/horizontal_norm*camera_direction.z;
+					x_speed -= actualMoveSpeed/horizontal_norm*camera_direction.x;
                 }
-				if ( this.moveLeft && this.isLocked) {
-                    let prev_y = this.camera.position.y
-                    this.camera.translateX( - actualMoveSpeed );
-                    this.camera.position.setY(prev_y)
+				if ( this.moveLeft && this.isLocked && horizontal_norm > 0.01 ) {
+					z_speed -= actualMoveSpeed/horizontal_norm*camera_left_direction_2d.z;
+                    x_speed -= actualMoveSpeed/horizontal_norm*camera_left_direction_2d.x;
                 }
-				if ( this.moveRight && this.isLocked) {
-                    let prev_y = this.camera.position.y
-                    this.camera.translateX( actualMoveSpeed );
-                    this.camera.position.setY(prev_y)
+				if ( this.moveRight && this.isLocked && horizontal_norm > 0.01 ) {
+					z_speed += actualMoveSpeed/horizontal_norm*camera_left_direction_2d.z;
+                    x_speed += actualMoveSpeed/horizontal_norm*camera_left_direction_2d.x;
                 }
+				x_speed = Math.min(x_speed, 1000);
+				z_speed = Math.min(z_speed, 1000);
+
+				this.camera.position.setX(prev_x+x_speed);
+				this.camera.position.setZ(prev_z+z_speed);
+
                 if (this.moveUp && this.isLocked){
-                    let prev_y = this.camera.position.y
-                    this.camera.position.setY(prev_y + actualMoveSpeed)
+                    let prev_y = this.camera.position.y;
+                    this.camera.position.setY(prev_y + actualMoveSpeed);
                 }
                 if (this.moveDown && this.isLocked){
-                    let prev_y = this.camera.position.y
-                    this.camera.position.setY(prev_y - actualMoveSpeed)
+                    let prev_y = this.camera.position.y;
+                    this.camera.position.setY(prev_y - actualMoveSpeed);
                 }
+
+				this.updateSelectBlock();
             }
 
         const _onKeyDown = this.onKeyDown.bind( this );
 		const _onKeyUp = this.onKeyUp.bind( this );
         window.addEventListener( 'keydown', _onKeyDown );
 		window.addEventListener( 'keyup', _onKeyUp );
+
+		/**
+         * My codes, building and destroying blocks
+         */
+		this.selectedBlock = {"blockId": null, "face": null};
+		this.updateSelectBlock = function (){
+			let camDir = new Vector3();
+			let camPos = new Vector3();
+			camera.getWorldDirection(camDir);
+			camera.getWorldPosition(camPos);
+			const maxCoorDist = 1000;
+			const maxBlockDist = 5;
+			const signX = camDir.x>=0; const signY = camDir.y>=0; const signZ = camDir.z>=0;
+			const cameraBlockId = World.worldCoorToBlockId(camPos);
+
+			let candidates = [];
+			for (let i=1; i<=maxBlockDist; i++){
+				let x_plane_coor = (signX) ? (cameraBlockId.x+i)*100 - World.worldHalfWidth*100 - 50 : (cameraBlockId.x-i)*100 - World.worldHalfWidth*100 + 50;
+				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"x":x_plane_coor}));
+				let y_plane_coor = (signY) ? (cameraBlockId.y+i)*100 - 50 : (cameraBlockId.y-i)*100 + 50;
+				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"y":y_plane_coor}));
+				let z_plane_coor = (signZ) ? (cameraBlockId.z+i)*100 - World.worldHalfDepth*100 - 50 : (cameraBlockId.z-i)*100 - World.worldHalfDepth*100 + 50;
+				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"z":z_plane_coor}));
+			}
+
+			console.log(candidates)
+			candidates = candidates.filter((elem)=>elem!=null)
+			candidates = candidates.filter((elem)=>{
+				if (World.isBlock(elem.blockId)){
+					console.log(`blockId = ${JSON.stringify(elem.blockId)}, isBlock = ${World.isBlock(elem.blockId)}, elem.dist = ${elem.dist}, elem.face = ${elem.face}, elem.temp = ${JSON.stringify(elem.temp)}`)
+					console.log(`elem.coor = ${JSON.stringify(elem.coor)}`)
+				}
+				return World.isBlock(elem.blockId) && elem.dist<=maxCoorDist;
+			})
+			candidates.sort((a,b)=>{
+				return a.dist>b.dist;
+			})
+
+			//console.log(candidates)
+
+			if (candidates.length==0){
+				this.selectedBlock.blockId = null;
+				this.selectedBlock.face = null;
+				updateSelectBlockCallback({"blockId": null, "face": null});
+			} else{
+				let selected = candidates[0];
+				console.log(`selected = ${JSON.stringify(selected)}`)
+				if(
+					this.selectedBlock.blockId === null 
+					|| selected.blockId.x!==this.selectedBlock.blockId.x 
+					|| selected.blockId.y!==this.selectedBlock.blockId.y
+					|| selected.blockId.z!==this.selectedBlock.blockId.z){
+						this.selectedBlock.blockId = selected.blockId;
+						this.selectedBlock.face = selected.face;
+						updateSelectBlockCallback({"blockId": selected.blockId, "face": selected.face});
+				} else{
+					return;
+				}
+			}
+		};
+		this.onPointerDown = function ( event ) {
+			if ( this.domElement !== document ) {
+				this.domElement.focus();
+			}
+
+			if ( this.isLocked ) {
+				switch ( event.button ) {
+					case 0: // left click
+						
+						break;
+					case 2: // right click
+						
+						break;
+				}
+
+			}
+
+			this.mouseDragOn = true;
+
+		};
+		 const _onPointerDown = this.onPointerDown.bind( this );
+		 this.domElement.addEventListener( 'pointerdown', _onPointerDown );
 
         /**
          * Combined function
