@@ -287,17 +287,40 @@ class MyMinecraftControls extends EventDispatcher {
 				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"z":z_plane_coor}));
 			}
 
-			console.log(candidates)
+			// console.log(candidates)
 			candidates = candidates.filter((elem)=>elem!=null)
 			candidates = candidates.filter((elem)=>{
-				if (World.isBlock(elem.blockId)){
-					console.log(`blockId = ${JSON.stringify(elem.blockId)}, isBlock = ${World.isBlock(elem.blockId)}, elem.dist = ${elem.dist}, elem.face = ${elem.face}, elem.temp = ${JSON.stringify(elem.temp)}`)
-					console.log(`elem.coor = ${JSON.stringify(elem.coor)}`)
+				let adjBlockId = Object.assign({}, elem.blockId)
+				switch (elem.face){
+					case 'px':
+						adjBlockId.x += 1;
+						break;
+					case 'nx':
+						adjBlockId.x -= 1;
+						break;
+					case 'py':
+						adjBlockId.y += 1;
+						break;
+					case 'ny':
+						adjBlockId.y -= 1;
+						break;
+					case 'pz':
+						adjBlockId.z += 1;
+						break;
+					case 'nz':
+						adjBlockId.z -= 1;
+						break;
 				}
-				return World.isBlock(elem.blockId) && elem.dist<=maxCoorDist;
+
+				// if (World.isBlock(elem.blockId)){
+				// 	 console.log(`blockId = ${JSON.stringify(elem.blockId)}, isBlock = ${World.isBlock(elem.blockId)}, 
+				// 	elem.dist = ${elem.dist}, elem.face = ${elem.face}, elem.temp = ${JSON.stringify(elem.temp)}, 
+				// 	elem.coor = ${JSON.stringify(elem.coor)}, adjBlock is block = ${World.isBlock(adjBlockId)}`)
+				// }
+				return World.isBlock(elem.blockId) && elem.dist<=maxCoorDist && !World.isBlock(adjBlockId);
 			})
 			candidates.sort((a,b)=>{
-				return a.dist>b.dist;
+				return a.dist<b.dist;
 			})
 
 			//console.log(candidates)
@@ -308,12 +331,13 @@ class MyMinecraftControls extends EventDispatcher {
 				updateSelectBlockCallback({"blockId": null, "face": null});
 			} else{
 				let selected = candidates[0];
-				console.log(`selected = ${JSON.stringify(selected)}`)
+				// console.log(`selected = ${JSON.stringify(selected)}`)
 				if(
 					this.selectedBlock.blockId === null 
 					|| selected.blockId.x!==this.selectedBlock.blockId.x 
 					|| selected.blockId.y!==this.selectedBlock.blockId.y
-					|| selected.blockId.z!==this.selectedBlock.blockId.z){
+					|| selected.blockId.z!==this.selectedBlock.blockId.z
+					|| selected.face!==this.selectedBlock.face){
 						this.selectedBlock.blockId = selected.blockId;
 						this.selectedBlock.face = selected.face;
 						updateSelectBlockCallback({"blockId": selected.blockId, "face": selected.face});

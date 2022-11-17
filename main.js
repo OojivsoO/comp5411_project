@@ -292,7 +292,7 @@ function updateMeshCallback(){
 }
 
 function updateSelectBlockCallback(block){
-    console.log(`update block = ${JSON.stringify(block)}`)
+    // console.log(`update block = ${JSON.stringify(block)}`)
     let blockId = block.blockId;
     let blockFace = block.face;
     if (blockId===null||blockFace===null){

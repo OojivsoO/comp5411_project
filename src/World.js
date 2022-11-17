@@ -10,7 +10,7 @@ class World{
     static heightData;
     static worldData; // 3D array of existance of blocks: [x][z] -> [y|y-coor of blocks in this vertical pilar of space]
     static waterData; // 3D array of existance of water: [x][z] -> [y|y-coor of water blocks in this vertical pilar of space]
-    static seaLevel = -1;
+    static seaLevel ;
 
     static init(worldWidth, worldDepth, worldHeight){
         World.worldWidth = worldWidth;
@@ -61,15 +61,23 @@ class World{
     static generateWorld(){
         const block_data = [];
         const water_data = [];
+        let lowest = Infinity;
         for ( let x = 0; x < World.worldWidth; x ++ ) {
             block_data.push([]);
             water_data.push([]);
             for ( let z = 0; z < World.worldDepth; z ++ ) {
                 block_data[x].push([]);
                 block_data[x][z].push(World.getY(x,z));
+                lowest = (World.getY(x,z)<lowest)? World.getY(x,z): lowest;
 
                 water_data[x].push([]);
-                for ( let i=World.getY(x,z)+1 ; i<this.seaLevel; i++){
+            }
+        }
+
+        World.seaLevel = lowest+4;
+        for ( let x = 0; x < World.worldWidth; x ++ ) {
+            for ( let z = 0; z < World.worldDepth; z ++ ) {
+                for ( let i=World.getY(x,z)+1 ; i<World.seaLevel; i++){
                     water_data[x][z].push(i);
                 }
             }
@@ -78,13 +86,18 @@ class World{
     }
 
     static isBlock(blockId){
+        if (blockId.x>=World.worldWidth||blockId.x<0
+            ||blockId.y>=World.worldHalfHeight||blockId.y<-World.worldHalfHeight
+            ||blockId.z>=World.worldDepth||blockId.z<0){
+                return false;
+            }
         return World.worldData[blockId.x][blockId.z].includes(blockId.y)
     }
 
     static isInWorldBoundary(vec3){
-        if (vec3.x>World.worldHalfWidth*100 || vec3.x<-World.worldHalfWidth*100) return false;
-        if (vec3.y>World.worldHalfHeight*100 || vec3.y<-World.worldHalfHeight*100) return false;
-        if (vec3.z>World.worldHalfDepth*100 || vec3.z<-World.worldHalfDepth*100) return false;
+        if (vec3.x>World.worldHalfWidth*100-50 || vec3.x<-World.worldHalfWidth*100-50) return false;
+        if (vec3.y>World.worldHalfHeight*100-50 || vec3.y<-World.worldHalfHeight*100-50) return false;
+        if (vec3.z>World.worldHalfDepth*100-50 || vec3.z<-World.worldHalfDepth*100-50) return false;
         return true;
     }
 
@@ -93,9 +106,16 @@ class World{
     }
 
     static worldCoorToBlockId(vec3){
-        let x = Math.floor((vec3.x + World.worldHalfWidth * 100) / 100);
-        let y = Math.floor(vec3.y / 100);
-        let z = Math.floor((vec3.z + World.worldHalfWidth * 100) / 100);
+        let x = Math.floor((vec3.x + World.worldHalfWidth * 100 + 50) / 100);
+        let y = Math.floor((vec3.y + 50) / 100);
+        let z = Math.floor((vec3.z + World.worldHalfWidth * 100 + 50) / 100);
+        return {"x":x, "y":y, "z":z}
+    }
+
+    static blockIdToWorldCoor(blockId){ // return center coor of the block
+        let x = blockId.x * 100 - World.worldHalfWidth * 100;
+        let y = blockId.y * 100;
+        let z = blockId.z * 100 - World.worldHalfDepth * 100;
         return {"x":x, "y":y, "z":z}
     }
 
