@@ -8,8 +8,11 @@ class World{
     static worldHalfDepth;
     static worldHalfHeight;
     static heightData;
-    static worldData; // 3D array of existance of blocks: [x][z] -> [y|y-coor of blocks in this vertical pilar of space]
-    static waterData; // 3D array of existance of water: [x][z] -> [y|y-coor of water blocks in this vertical pilar of space]
+    static worldData; // 3D array of existance of things: [x][z] -> [y|y-coor of things in this vertical pilar of space]
+    static worldBlockData; // 3D array of existance of blocks: [x][z] -> [y|y-coor of blocks in this vertical pilar of space]
+    static worldFuildData; // 3D array of existance of fuild (not block but occupy space): [x][z] -> [y|y-coor of fuild in this vertical pilar of space]
+    static worldGrassBlockData; // 3D array of existance of grass block: [x][z] -> [y|y-coor of grass blocks in this vertical pilar of space]
+    static worldWaterData; // 3D array of existance of water: [x][z] -> [y|y-coor of water blocks in this vertical pilar of space]
     static seaLevel ;
 
     static init(worldWidth, worldDepth, worldHeight){
@@ -20,7 +23,7 @@ class World{
         World.worldHalfDepth = worldDepth / 2;
         World.worldHalfHeight = worldHeight / 2;
         World.heightData = World.generateHeight( worldWidth, worldDepth );
-        [World.worldData, World.waterData] = World.generateWorld();
+        [World.worldData, World.worldBlockData, World.worldGrassBlockData, World.worldFuildData, World.worldWaterData] = World.generateWorld();
     }
 
         
@@ -59,30 +62,46 @@ class World{
     }
 
     static generateWorld(){
+        const data = [];
         const block_data = [];
+        const grass_block_data = [];
+        const fuild_data = [];
         const water_data = [];
         let lowest = Infinity;
         for ( let x = 0; x < World.worldWidth; x ++ ) {
+            data.push([]);
             block_data.push([]);
             water_data.push([]);
+            grass_block_data.push([]);
+            fuild_data.push([]);
             for ( let z = 0; z < World.worldDepth; z ++ ) {
+                data[x].push([]);
                 block_data[x].push([]);
-                block_data[x][z].push(World.getY(x,z));
+                grass_block_data[x].push([]);
                 lowest = (World.getY(x,z)<lowest)? World.getY(x,z): lowest;
+                
+                for ( let i = World.getY(x,z); i > World.getY(x,z)-3; i--){
+                    data[x][z].push(i);
+                    block_data[x][z].push(i);
+                    grass_block_data[x][z].push(i);
+                }
 
+                fuild_data[x].push([]);
                 water_data[x].push([]);
             }
         }
 
-        World.seaLevel = lowest+4;
+        World.seaLevel = lowest+5;
         for ( let x = 0; x < World.worldWidth; x ++ ) {
             for ( let z = 0; z < World.worldDepth; z ++ ) {
                 for ( let i=World.getY(x,z)+1 ; i<World.seaLevel; i++){
+                    data[x][z].push(i);
+                    fuild_data[x][z].push(i);
                     water_data[x][z].push(i);
                 }
             }
         }
-        return [block_data, water_data];
+        return [data, block_data, grass_block_data, fuild_data, water_data];
     }
 
     static isBlock(blockId){
@@ -120,11 +139,11 @@ class World{
     }
 
     static originAndDirToBlockId(origin, dir, plane_coor){
-        let x = plane_coor.x? plane_coor.x:null;
-        let y = plane_coor.y? plane_coor.y:null;
-        let z = plane_coor.z? plane_coor.z:null;
+        let x = "x" in plane_coor? plane_coor.x:null;
+        let y = "y" in plane_coor? plane_coor.y:null;
+        let z = "z" in plane_coor? plane_coor.z:null;
         const signX = dir.x>=0; const signY = dir.y>=0; const signZ = dir.z>=0;
-        if(x){
+        if(x!=null){
             let time = (x-origin.x) / dir.x;
             if(isNaN(time)){
                 return null;
@@ -145,7 +164,7 @@ class World{
                     return null;
                 }
             }
-        } else if (y){
+        } else if (y!=null){
             let time = (y-origin.y) / dir.y;
             if(isNaN(time)){
                 return null;
@@ -166,7 +185,7 @@ class World{
                     return null;
                 }
             }
-        } else if (z){
+        } else if (z!=null){
             let time = (z-origin.z) / dir.z;
             if(isNaN(time)){
                 return null;
@@ -190,12 +209,53 @@ class World{
         }
     }
 
-    static destroyBlock(blockId){
-
+    static getTypeByBlockId(blockId){
+        let x=blockId.x, y=blockId.y, z=blockId.z;
+        if (!World.worldData[x][z].includes(y)){
+            return null;
+        } else if (World.worldGrassBlockData[x][z].includes(y)){
+            return "GrassBlock";
+        } else if (World.worldWaterData[x][z].includes(y)){
+            return "Water";
+        }
+        return null;
     }
 
-    static createBlick(blockId){
+    static destroyBlock(blockId){
+        let x=blockId.x, y=blockId.y, z=blockId.z;
+        World.worldData[x][z] = World.worldData[x][z].filter((elem)=>{
+            return elem != y;
+        });
+        World.worldBlockData[x][z] = World.worldBlockData[x][z].filter((elem)=>{
+            return elem != y;
+        });
+        World.worldGrassBlockData[x][z] = World.worldGrassBlockData[x][z].filter((elem)=>{
+            return elem != y;
+        });
+        World.worldFuildData[x][z] = World.worldFuildData[x][z].filter((elem)=>{
+            return elem != y;
+        });
+        World.worldWaterData[x][z] = World.worldWaterData[x][z].filter((elem)=>{
+            return elem != y;
+        });
+    }
 
+    static createBlock(blockId, type){
+        let x=blockId.x, y=blockId.y, z=blockId.z;
+        if (World.isBlock(blockId)){
+            return;
+        }
+        World.worldData[x][z].push(y);
+        switch(type){
+            case "GrassBlock":
+                World.worldBlockData[x][z].push(y);
+                World.worldGrassBlockData[x][z].push(y);
+                break;
+            case "Water":
+                World.worldFuildData[x][z].push(y);
+                World.worldWaterData[x][z].push(y);
+                break;
+        }
     }
 }
 

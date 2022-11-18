@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 import Stats from 'three/addons/libs/stats.module.js';
 import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+import { Sky } from 'three/addons/objects/Sky.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -11,11 +13,13 @@ import { Vector3 } from 'three';
 
 let container, stats;
 
-let camera, controls, scene, renderer, world_block_geometry, world_water_geometry, mesh, texture, selectedBlock, selectedPlane;
+let camera, controls, scene, renderer, geometry, mesh, texture, material, selectedBlock, selectedPlane;
+let sky, sun;
 
 const worldWidth = 128, worldDepth = 128, worldHeight = 128;
 const worldHalfWidth = worldWidth / 2;
 const worldHalfDepth = worldDepth / 2;
+const worldHalfHeight = worldHeight / 2;
 
 const pxGeometry = new THREE.PlaneGeometry( 100, 100 );
 const nxGeometry = new THREE.PlaneGeometry( 100, 100 );
@@ -23,6 +27,8 @@ const pyGeometry = new THREE.PlaneGeometry( 100, 100 );
 const nyGeometry = new THREE.PlaneGeometry( 100, 100 );
 const pzGeometry = new THREE.PlaneGeometry( 100, 100 );
 const nzGeometry = new THREE.PlaneGeometry( 100, 100 );
+const grassBlockTexture = new THREE.TextureLoader().load( 'textures/atlas.png' );
+const grassBlockMaterial = new THREE.MeshStandardMaterial( { map: grassBlockTexture, side: THREE.FrontSide} ) ;
 const matrix = new THREE.Matrix4();
 
 // demo of water block, to be replaced later
@@ -48,19 +54,26 @@ function init() {
 
     initGeo();
 
-    texture = new THREE.TextureLoader().load( 'textures/atlas.png' );
-    texture.magFilter = THREE.NearestFilter;
+    grassBlockTexture.magFilter = THREE.NearestFilter;
 
     // init world blocks
-    [world_block_geometry, world_water_geometry] = worldToGeometry()
-    world_block_geometry.computeBoundingSphere();
-    world_water_geometry.computeBoundingSphere();
+    geometry = {};
+    geometry["GrassBlock"] = worldToGeometry("GrassBlock");
+    geometry["Water"]= worldToGeometry("Water");
+    geometry["GrassBlock"].computeBoundingSphere();
+    geometry["Water"].computeBoundingSphere();
+    geometry["GrassBlock"].computeVertexNormals();
 
-    mesh = new THREE.Mesh( world_block_geometry, new THREE.MeshLambertMaterial( { map: texture, side: THREE.DoubleSide } ) );
-    scene.add( mesh );
+    material = {};
+    material["GrassBlock"] = grassBlockMaterial;
+    material["Water"] = waterMaterial
 
-    mesh = new THREE.Mesh( world_water_geometry, waterMaterial );
-    scene.add( mesh );
+    mesh = {};
+    mesh["GrassBlock"] = new THREE.Mesh( geometry["GrassBlock"], material["GrassBlock"] );
+    scene.add( mesh["GrassBlock"] );
+
+    mesh["Water"] = new THREE.Mesh( geometry["Water"], material["Water"] );
+    scene.add( mesh["Water"] );
 
     // init selected block
     selectedBlock = {};
@@ -84,19 +97,38 @@ function init() {
     selectedPlane.mesh = new THREE.Mesh( selectedPlane.geometry, selectedPlane.material );
     scene.add( selectedPlane.mesh );
 
-    // lighting
-    const ambientLight = new THREE.AmbientLight( 0xcccccc );
-    scene.add( ambientLight );
-
-    const directionalLight = new THREE.DirectionalLight( 0xffffff, 2 );
-    directionalLight.position.set( 1, 1, 0.5 ).normalize();
-    scene.add( directionalLight );
-
     // renderer
     renderer = new THREE.WebGLRenderer( { antialias: true } );
     renderer.setPixelRatio( window.devicePixelRatio );
     renderer.setSize( window.innerWidth, window.innerHeight );
     container.appendChild( renderer.domElement );
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // lighting
+    const ambientLight = new THREE.AmbientLight( 0xcccccc, 1.3 );
+    scene.add( ambientLight );
+
+    const directionalLight = new THREE.DirectionalLight( 0xffffff, 1.3 );
+    let directionalLightSource = new Vector3(0,1,-1).normalize();
+    let r = Math.sqrt(Math.pow(worldHalfWidth*100,2) + Math.pow(worldHalfDepth*100,2) + Math.pow(worldHalfHeight*100,2))
+    directionalLightSource.multiplyScalar(r);
+    directionalLight.position.set( directionalLightSource.x, directionalLightSource.y, directionalLightSource.z );
+    directionalLight.castShadow = true;
+    directionalLight.shadow.camera.near = 0;
+    directionalLight.shadow.camera.far = 2*r;
+    directionalLight.shadow.camera.left = -r;
+    directionalLight.shadow.camera.right = r;
+    directionalLight.shadow.camera.top = r;
+    directionalLight.shadow.camera.bottom = -r;
+    // console.log(directionalLight.shadow.camera)
+    scene.add( directionalLight );
+    mesh['GrassBlock'].castShadow  = true;
+    mesh['GrassBlock'].receiveShadow  = true;
+    // scene.add( new THREE.CameraHelper( directionalLight.shadow.camera ) );
+
+    // testing for sky
+    initSky();
 
     // connect controls
     controls = new MyMinecraftControls( camera, renderer.domElement, updateMeshCallback, updateSelectBlockCallback );
@@ -191,104 +223,146 @@ function initGeo(){
     nzGeometry.translate( 0, 0, - 50 );
 }
 
-function worldToGeometry(){
-    const world_block_geometries = [];
-    const world_water_geometries = [];
-    for ( let x = 0; x < worldWidth; x ++ ) {
-        for ( let z = 0; z < worldDepth; z ++ ) {
-            for (const y of World.worldData[x][z]){
-                matrix.makeTranslation(
-                    x * 100 - worldHalfWidth * 100 + 50,
-                    y * 100 + 50,
-                    z * 100 - worldHalfDepth * 100 + 50
-                );
+function initSky(){
+    // Add Sky
+    sky = new Sky();
+    sky.scale.setScalar( 450000 );
+    scene.add( sky );
 
-                const px = World.worldData[Math.min(x+1,worldWidth-1)][z].includes(y);
-                const px_water = World.waterData[Math.min(x+1,worldWidth-1)][z].includes(y);
-                const nx = World.worldData[Math.max(x-1,0)][z].includes(y);
-                const nx_water = World.waterData[Math.max(x-1,0)][z].includes(y);
-                const py = World.worldData[x][z].includes(y+1);
-                const py_water = World.waterData[x][z].includes(y+1);
-                const ny = World.worldData[x][z].includes(y-1);
-                const pz = World.worldData[x][Math.min(z+1,worldDepth-1)].includes(y);
-                const pz_water = World.waterData[x][Math.min(z+1,worldDepth-1)].includes(y);
-                const nz = World.worldData[x][Math.max(z-1,0)].includes(y);
-                const nz_water = World.waterData[x][Math.max(z-1,0)].includes(y);
+    sun = new THREE.Vector3();
 
-                if (!px||x===worldWidth-1){
-                    if (px_water){
-                        world_block_geometries.push( nyGeometry.clone().rotateZ(Math.PI/2).applyMatrix4( matrix ) );
-                    } else{
-                        world_block_geometries.push( pxGeometry.clone().applyMatrix4( matrix ) );
-                    }
-                }
+    /// GUI
 
-                if (!nx||x===0){
-                    if (nx_water){
-                        world_block_geometries.push( nyGeometry.clone().rotateZ(-Math.PI/2).applyMatrix4( matrix ) );
-                    } else{
-                        world_block_geometries.push( nxGeometry.clone().applyMatrix4( matrix ) );
-                    }
-                }
+    const effectController = {
+        turbidity: 2.5,
+        rayleigh: 0.647,
+        mieCoefficient: 0.008,
+        mieDirectionalG: 0.125,
+        elevation: 10,
+        azimuth: 180,
+        exposure: renderer.toneMappingExposure
+    };
 
-                if (!py && !py_water){
-                    world_block_geometries.push( pyGeometry.clone().applyMatrix4( matrix ) );
-                }
+    const uniforms = sky.material.uniforms;
+    uniforms[ 'turbidity' ].value = effectController.turbidity;
+    uniforms[ 'rayleigh' ].value = effectController.rayleigh;
+    uniforms[ 'mieCoefficient' ].value = effectController.mieCoefficient;
+    uniforms[ 'mieDirectionalG' ].value = effectController.mieDirectionalG;
 
-                if (!py && py_water){
-                    world_block_geometries.push( nyGeometry.clone().translate(0, 100, 0).applyMatrix4( matrix ) );
-                }
+    const phi = THREE.MathUtils.degToRad( 90 - effectController.elevation );
+    const theta = THREE.MathUtils.degToRad( effectController.azimuth );
 
-                if (!ny){
-                    world_block_geometries.push( nyGeometry.clone().applyMatrix4( matrix ) );
-                }
+    sun.setFromSphericalCoords( 1, phi, theta );
 
-                if (!pz||z===worldDepth-1){
-                    if (pz_water){
-                        world_block_geometries.push( nyGeometry.clone().rotateX(-Math.PI/2).applyMatrix4( matrix ) );
-                    } else{
-                        world_block_geometries.push( pzGeometry.clone().applyMatrix4( matrix ) );
-                    }
-                }
+    uniforms[ 'sunPosition' ].value.copy( sun );
 
-                if (!nz||z===0){
-                    if (nz_water){
-                        world_block_geometries.push( nyGeometry.clone().rotateX(Math.PI/2).applyMatrix4( matrix ) );
-                    } else{
-                        world_block_geometries.push( nzGeometry.clone().applyMatrix4( matrix ) );
-                    }
-                }
-            }
-        }
-    }
+    renderer.toneMappingExposure = effectController.exposure;
+    renderer.render( scene, camera );
 
-    for ( let x = 0; x < worldWidth; x ++ ) {
-        for ( let z = 0; z < worldDepth; z ++ ) {
-            for (const y of World.waterData[x][z]){
-                matrix.makeTranslation(
-                    x * 100 - worldHalfWidth * 100 + 50,
-                    y * 100 + 50,
-                    z * 100 - worldHalfDepth * 100 + 50
-                );
-                world_water_geometries.push( waterGeometry.clone().applyMatrix4(matrix) );
-            }
-        }
-    }
-
-
-    return [BufferGeometryUtils.mergeBufferGeometries( world_block_geometries ),
-            BufferGeometryUtils.mergeBufferGeometries( world_water_geometries )];
 }
 
-function updateMeshCallback(){
-    scene.remove(mesh);
-    mesh.geometry.dispose();
-    mesh.material.dispose();
-    geometry = worldToGeometry();
-    geometry.computeBoundingSphere();
+function worldToGeometry(type){
+    if (type === "GrassBlock"){
+        const world_block_geometries = [];
+        for ( let x = 0; x < worldWidth; x ++ ) {
+            for ( let z = 0; z < worldDepth; z ++ ) {
+                for (const y of World.worldGrassBlockData[x][z]){
+                    matrix.makeTranslation(
+                        x * 100 - worldHalfWidth * 100 + 50,
+                        y * 100 + 50,
+                        z * 100 - worldHalfDepth * 100 + 50
+                    );
+    
+                    const px = World.worldGrassBlockData[Math.min(x+1,worldWidth-1)][z].includes(y);
+                    const px_water = World.worldWaterData[Math.min(x+1,worldWidth-1)][z].includes(y);
+                    const nx = World.worldGrassBlockData[Math.max(x-1,0)][z].includes(y);
+                    const nx_water = World.worldWaterData[Math.max(x-1,0)][z].includes(y);
+                    const py = World.worldGrassBlockData[x][z].includes(y+1);
+                    const py_water = World.worldWaterData[x][z].includes(y+1);
+                    const py_block = World.worldBlockData[x][z].includes(y+1);
+                    const ny = World.worldGrassBlockData[x][z].includes(y-1);
+                    const pz = World.worldGrassBlockData[x][Math.min(z+1,worldDepth-1)].includes(y);
+                    const pz_water = World.worldWaterData[x][Math.min(z+1,worldDepth-1)].includes(y);
+                    const nz = World.worldGrassBlockData[x][Math.max(z-1,0)].includes(y);
+                    const nz_water = World.worldWaterData[x][Math.max(z-1,0)].includes(y);
+    
+                    if (!px||x===worldWidth-1){
+                        if (px_water||py_block){
+                            world_block_geometries.push( nyGeometry.clone().rotateZ(Math.PI/2).applyMatrix4( matrix ) );
+                        } else{
+                            world_block_geometries.push( pxGeometry.clone().applyMatrix4( matrix ) );
+                        }
+                    }
+    
+                    if (!nx||x===0){
+                        if (nx_water||py_block){
+                            world_block_geometries.push( nyGeometry.clone().rotateZ(-Math.PI/2).applyMatrix4( matrix ) );
+                        } else{
+                            world_block_geometries.push( nxGeometry.clone().applyMatrix4( matrix ) );
+                        }
+                    }
+    
+                    if (!py && !py_water){
+                        world_block_geometries.push( pyGeometry.clone().applyMatrix4( matrix ) );
+                    }
+    
+                    if (!py && py_water){
+                        world_block_geometries.push( nyGeometry.clone().rotateZ(-Math.PI).applyMatrix4( matrix ) );
+                    }
+    
+                    if (!ny){
+                        world_block_geometries.push( nyGeometry.clone().applyMatrix4( matrix ) );
+                    }
+    
+                    if (!pz||z===worldDepth-1){
+                        if (pz_water||py_block){
+                            world_block_geometries.push( nyGeometry.clone().rotateX(-Math.PI/2).applyMatrix4( matrix ) );
+                        } else{
+                            world_block_geometries.push( pzGeometry.clone().applyMatrix4( matrix ) );
+                        }
+                    }
+    
+                    if (!nz||z===0){
+                        if (nz_water||py_block){
+                            world_block_geometries.push( nyGeometry.clone().rotateX(Math.PI/2).applyMatrix4( matrix ) );
+                        } else{
+                            world_block_geometries.push( nzGeometry.clone().applyMatrix4( matrix ) );
+                        }
+                    }
+                }
+            }
+        }
+        return BufferGeometryUtils.mergeBufferGeometries( world_block_geometries );
+    } else if (type === "Water"){
+        const world_water_geometries = [];
+        for ( let x = 0; x < worldWidth; x ++ ) {
+            for ( let z = 0; z < worldDepth; z ++ ) {
+                for (const y of World.worldWaterData[x][z]){
+                    matrix.makeTranslation(
+                        x * 100 - worldHalfWidth * 100 + 50,
+                        y * 100 + 50,
+                        z * 100 - worldHalfDepth * 100 + 50
+                    );
+                    world_water_geometries.push( waterGeometry.clone().applyMatrix4(matrix) );
+                }
+            }
+        }
+        return BufferGeometryUtils.mergeBufferGeometries( world_water_geometries );
+    }
+}
 
-    mesh = new THREE.Mesh( geometry, new THREE.MeshLambertMaterial( { map: texture, side: THREE.DoubleSide } ) );
-    scene.add( mesh );
+function updateMeshCallback(type){
+    scene.remove(mesh[type]);
+    geometry[type].dispose();
+    geometry[type] = worldToGeometry(type);
+    geometry[type].computeBoundingSphere();
+
+    mesh[type] = new THREE.Mesh( geometry[type], material[type] );
+    scene.add(mesh[type]);
+    if(type==="GrassBlock"){
+        mesh['GrassBlock'].castShadow  = true;
+        mesh['GrassBlock'].receiveShadow  = true;
+    }
 }
 
 function updateSelectBlockCallback(block){
@@ -322,27 +396,6 @@ function updateSelectBlockCallback(block){
     selectedPlane.geometry = selectedPlane.planeGeometry[blockFace].clone().applyMatrix4(matrix);
     selectedPlane.mesh = new THREE.Mesh( selectedPlane.geometry, selectedPlane.material );
     scene.add(selectedPlane.mesh);
-    //selectedBlock.geometry = selectedBlock.baseGeometry.clone().applyMatrix4(matrix);
-    //selectedBlock.geometry.attributes.position = new Vector3(blockId.x, blockId.y, blockId.z)
-    //selectedBlock.geometry.attributes.position.needsUpdate = true;\
-    // if (selectedBlock.coordinate){
-    //     matrix.makeTranslation(
-    //         (blockId.x - selectedBlock.coordinate.x) * 100,
-    //         (blockId.y - selectedBlock.coordinate.y) * 100,
-    //         (blockId.z - selectedBlock.coordinate.z) * 100
-    //     );
-    //     selectedBlock.geometry.applyMatrix4(matrix);
-    //     selectedPlane.geometry.applyMatrix4(matrix);
-    // } else{
-    //     matrix.makeTranslation(
-    //         blockId.x * 100 - worldHalfWidth * 100,
-    //         blockId.y * 100,
-    //         blockId.z * 100 - worldHalfDepth * 100
-    //     );
-    //     selectedBlock.geometry.applyMatrix4(matrix);
-    //     selectedPlane.geometry.applyMatrix4(matrix);
-    // }
-    // selectedBlock.coordinate = blockId;
 }
 
 function onWindowResize() {

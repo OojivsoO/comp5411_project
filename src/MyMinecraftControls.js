@@ -267,6 +267,31 @@ class MyMinecraftControls extends EventDispatcher {
          * My codes, building and destroying blocks
          */
 		this.selectedBlock = {"blockId": null, "face": null};
+		this.currentBuildBlock = "GrassBlock";
+		this.getAdjBlockId = function(blockId, face){
+			let adjBlockId = Object.assign({}, blockId)
+			switch (face){
+				case 'px':
+					adjBlockId.x += 1;
+					break;
+				case 'nx':
+					adjBlockId.x -= 1;
+					break;
+				case 'py':
+					adjBlockId.y += 1;
+					break;
+				case 'ny':
+					adjBlockId.y -= 1;
+					break;
+				case 'pz':
+					adjBlockId.z += 1;
+					break;
+				case 'nz':
+					adjBlockId.z -= 1;
+					break;
+			}
+			return adjBlockId
+		};
 		this.updateSelectBlock = function (){
 			let camDir = new Vector3();
 			let camPos = new Vector3();
@@ -290,27 +315,7 @@ class MyMinecraftControls extends EventDispatcher {
 			// console.log(candidates)
 			candidates = candidates.filter((elem)=>elem!=null)
 			candidates = candidates.filter((elem)=>{
-				let adjBlockId = Object.assign({}, elem.blockId)
-				switch (elem.face){
-					case 'px':
-						adjBlockId.x += 1;
-						break;
-					case 'nx':
-						adjBlockId.x -= 1;
-						break;
-					case 'py':
-						adjBlockId.y += 1;
-						break;
-					case 'ny':
-						adjBlockId.y -= 1;
-						break;
-					case 'pz':
-						adjBlockId.z += 1;
-						break;
-					case 'nz':
-						adjBlockId.z -= 1;
-						break;
-				}
+				let adjBlockId = this.getAdjBlockId(elem.blockId, elem.face);
 
 				// if (World.isBlock(elem.blockId)){
 				// 	 console.log(`blockId = ${JSON.stringify(elem.blockId)}, isBlock = ${World.isBlock(elem.blockId)}, 
@@ -354,10 +359,18 @@ class MyMinecraftControls extends EventDispatcher {
 			if ( this.isLocked ) {
 				switch ( event.button ) {
 					case 0: // left click
-						
+						if (this.selectedBlock.blockId){
+							let type = World.getTypeByBlockId(this.selectedBlock.blockId);
+							World.destroyBlock(this.selectedBlock.blockId);
+							updateMeshCallback(type);
+						}
 						break;
 					case 2: // right click
-						
+						if (this.selectedBlock.blockId){
+							World.createBlock(this.getAdjBlockId(this.selectedBlock.blockId, this.selectedBlock.face), this.currentBuildBlock)
+							updateMeshCallback(this.currentBuildBlock);
+							// console.log(`${JSON.stringify(this.selectedBlock.blockId)}, ${this.selectedBlock.face}`)
+						}
 						break;
 				}
 
@@ -377,6 +390,7 @@ class MyMinecraftControls extends EventDispatcher {
 			this.disconnect();
 			window.removeEventListener( 'keydown', _onKeyDown );
 			window.removeEventListener( 'keyup', _onKeyUp );
+			this.domElement.removeEventListener( 'pointerdown', _onPointerDown );
 		};
 	}
 
