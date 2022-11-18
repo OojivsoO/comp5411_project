@@ -95,9 +95,9 @@ class World{
     }
 
     static isInWorldBoundary(vec3){
-        if (vec3.x>World.worldHalfWidth*100-50 || vec3.x<-World.worldHalfWidth*100-50) return false;
-        if (vec3.y>World.worldHalfHeight*100-50 || vec3.y<-World.worldHalfHeight*100-50) return false;
-        if (vec3.z>World.worldHalfDepth*100-50 || vec3.z<-World.worldHalfDepth*100-50) return false;
+        if (vec3.x>World.worldHalfWidth*100 || vec3.x<-World.worldHalfWidth*100) return false;
+        if (vec3.y>World.worldHalfHeight*100 || vec3.y<-World.worldHalfHeight*100) return false;
+        if (vec3.z>World.worldHalfDepth*100 || vec3.z<-World.worldHalfDepth*100) return false;
         return true;
     }
 
@@ -106,21 +106,20 @@ class World{
     }
 
     static worldCoorToBlockId(vec3){
-        let x = Math.floor((vec3.x + World.worldHalfWidth * 100 + 50) / 100);
-        let y = Math.floor((vec3.y + 50) / 100);
-        let z = Math.floor((vec3.z + World.worldHalfWidth * 100 + 50) / 100);
+        let x = Math.floor((vec3.x + World.worldHalfWidth * 100) / 100);
+        let y = Math.floor((vec3.y) / 100);
+        let z = Math.floor((vec3.z + World.worldHalfWidth * 100) / 100);
         return {"x":x, "y":y, "z":z}
     }
 
     static blockIdToWorldCoor(blockId){ // return center coor of the block
-        let x = blockId.x * 100 - World.worldHalfWidth * 100;
-        let y = blockId.y * 100;
-        let z = blockId.z * 100 - World.worldHalfDepth * 100;
+        let x = blockId.x * 100 - World.worldHalfWidth * 100 + 50;
+        let y = blockId.y * 100 + 50;
+        let z = blockId.z * 100 - World.worldHalfDepth * 100 + 50;
         return {"x":x, "y":y, "z":z}
     }
 
     static originAndDirToBlockId(origin, dir, plane_coor){
-        let temp = [origin, dir, plane_coor]
         let x = plane_coor.x? plane_coor.x:null;
         let y = plane_coor.y? plane_coor.y:null;
         let z = plane_coor.z? plane_coor.z:null;
@@ -135,13 +134,13 @@ class World{
             let dist = World.distBetweenTwoWorldCoor(origin, {"x":x, "y":y_coor, "z":z_coor});
             if (signX){
                 if(World.isInWorldBoundary({"x":x+50, "y":y_coor, "z":z_coor})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x+50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "nx", "temp": temp, "coor": {"x":x, "y":y_coor, "z":z_coor}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x+50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "nx"};
                 } else {
                     return null;
                 }
             } else{
                 if(World.isInWorldBoundary({"x":x-50, "y":y_coor, "z":z_coor})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x-50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "px", "temp": temp, "coor": {"x":x, "y":y_coor, "z":z_coor}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x-50, "y":y_coor, "z":z_coor}), "dist":dist, "face": "px"};
                 } else {
                     return null;
                 }
@@ -156,13 +155,13 @@ class World{
             let dist = World.distBetweenTwoWorldCoor(origin, {"x":x_coor, "y":y, "z":z_coor});
             if (signY){
                 if(World.isInWorldBoundary({"x":x_coor, "y":y+50, "z":z_coor})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y+50, "z":z_coor}), "dist":dist, "face": "ny", "temp": temp, "coor": {"x":x_coor, "y":y, "z":z_coor}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y+50, "z":z_coor}), "dist":dist, "face": "ny"};
                 } else {
                     return null;
                 }
             } else{
                 if(World.isInWorldBoundary({"x":x_coor, "y":y-50, "z":z_coor})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y-50, "z":z_coor}), "dist":dist, "face": "py", "temp": temp, "coor": {"x":x_coor, "y":y, "z":z_coor}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y-50, "z":z_coor}), "dist":dist, "face": "py"};
                 } else {
                     return null;
                 }
@@ -177,13 +176,13 @@ class World{
             let dist = World.distBetweenTwoWorldCoor(origin, {"x":x_coor, "y":y_coor, "z":z})
             if (signZ){
                 if(World.isInWorldBoundary({"x":x_coor, "y":y_coor, "z":z+50})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z+50}), "dist":dist, "face": "nz", "temp": temp, "coor": {"x":x_coor, "y":y_coor, "z":z}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z+50}), "dist":dist, "face": "nz"};
                 } else {
                     return null;
                 }
             } else{
                 if(World.isInWorldBoundary({"x":x_coor, "y":y_coor, "z":z-50})){
-                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z-50}), "dist":dist, "face": "pz", "temp": temp, "coor": {"x":x_coor, "y":y_coor, "z":z}};
+                    return {"blockId": World.worldCoorToBlockId({"x":x_coor, "y":y_coor, "z":z-50}), "dist":dist, "face": "pz"};
                 } else {
                     return null;
                 }

@@ -240,8 +240,8 @@ class MyMinecraftControls extends EventDispatcher {
 					z_speed += actualMoveSpeed/horizontal_norm*camera_left_direction_2d.z;
                     x_speed += actualMoveSpeed/horizontal_norm*camera_left_direction_2d.x;
                 }
-				x_speed = Math.min(x_speed, 1000);
-				z_speed = Math.min(z_speed, 1000);
+				x_speed = Math.min(x_speed, 500);
+				z_speed = Math.min(z_speed, 500);
 
 				this.camera.position.setX(prev_x+x_speed);
 				this.camera.position.setZ(prev_z+z_speed);
@@ -279,11 +279,11 @@ class MyMinecraftControls extends EventDispatcher {
 
 			let candidates = [];
 			for (let i=1; i<=maxBlockDist; i++){
-				let x_plane_coor = (signX) ? (cameraBlockId.x+i)*100 - World.worldHalfWidth*100 - 50 : (cameraBlockId.x-i)*100 - World.worldHalfWidth*100 + 50;
+				let x_plane_coor = (signX) ? (cameraBlockId.x+i)*100 - World.worldHalfWidth*100 : (cameraBlockId.x-i)*100 - World.worldHalfWidth*100 + 100;
 				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"x":x_plane_coor}));
-				let y_plane_coor = (signY) ? (cameraBlockId.y+i)*100 - 50 : (cameraBlockId.y-i)*100 + 50;
+				let y_plane_coor = (signY) ? (cameraBlockId.y+i)*100 : (cameraBlockId.y-i)*100 + 100;
 				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"y":y_plane_coor}));
-				let z_plane_coor = (signZ) ? (cameraBlockId.z+i)*100 - World.worldHalfDepth*100 - 50 : (cameraBlockId.z-i)*100 - World.worldHalfDepth*100 + 50;
+				let z_plane_coor = (signZ) ? (cameraBlockId.z+i)*100 - World.worldHalfDepth*100 : (cameraBlockId.z-i)*100 - World.worldHalfDepth*100 + 100;
 				candidates.push(World.originAndDirToBlockId(camPos, camDir, {"z":z_plane_coor}));
 			}
 

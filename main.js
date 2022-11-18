@@ -41,7 +41,7 @@ function init() {
     World.init(worldWidth, worldDepth, worldHeight);
 
     camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 20000 );
-    camera.position.y = World.getY( worldHalfWidth, worldHalfDepth ) * 100 + 100;
+    camera.position.y = World.getY( worldHalfWidth, worldHalfDepth ) * 100 + 200;
 
     scene = new THREE.Scene();
     scene.background = new THREE.Color( 0xbfd1e5 );
@@ -198,9 +198,9 @@ function worldToGeometry(){
         for ( let z = 0; z < worldDepth; z ++ ) {
             for (const y of World.worldData[x][z]){
                 matrix.makeTranslation(
-                    x * 100 - worldHalfWidth * 100,
-                    y * 100,
-                    z * 100 - worldHalfDepth * 100
+                    x * 100 - worldHalfWidth * 100 + 50,
+                    y * 100 + 50,
+                    z * 100 - worldHalfDepth * 100 + 50
                 );
 
                 const px = World.worldData[Math.min(x+1,worldWidth-1)][z].includes(y);
@@ -266,9 +266,9 @@ function worldToGeometry(){
         for ( let z = 0; z < worldDepth; z ++ ) {
             for (const y of World.waterData[x][z]){
                 matrix.makeTranslation(
-                    x * 100 - worldHalfWidth * 100,
-                    y * 100,
-                    z * 100 - worldHalfDepth * 100
+                    x * 100 - worldHalfWidth * 100 + 50,
+                    y * 100 + 50,
+                    z * 100 - worldHalfDepth * 100 + 50
                 );
                 world_water_geometries.push( waterGeometry.clone().applyMatrix4(matrix) );
             }
@@ -306,9 +306,9 @@ function updateSelectBlockCallback(block){
     selectedPlane.material.opacity = 0.6;
     selectedBlock.material.opacity = 0.5;
     matrix.makeTranslation(
-        (blockId.x) * 100 - worldHalfWidth * 100,
-        (blockId.y) * 100,
-        (blockId.z) * 100 - worldHalfDepth * 100
+        (blockId.x) * 100 - worldHalfWidth * 100 + 50,
+        (blockId.y) * 100 + 50,
+        (blockId.z) * 100 - worldHalfDepth * 100 + 50
     );
 
     scene.remove(selectedBlock.mesh);
