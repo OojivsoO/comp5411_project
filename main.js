@@ -11,6 +11,9 @@ import { MyMinecraftControls } from './src/MyMinecraftControls.js'
 import { World } from './src/World.js' 
 import { Vector3 } from 'three';
 
+import waterFragShader from './shaders/water.frag.js';
+import waterVertexShader from './shaders/water.vert.js';
+
 let container, stats;
 
 let camera, controls, scene, renderer, geometry, mesh, texture, material, selectedBlock, selectedPlane;
@@ -31,9 +34,13 @@ const grassBlockTexture = new THREE.TextureLoader().load( 'textures/atlas.png' )
 const grassBlockMaterial = new THREE.MeshStandardMaterial( { map: grassBlockTexture, side: THREE.FrontSide} ) ;
 const matrix = new THREE.Matrix4();
 
+const refractiveIndex = {
+    "air": 1.00,
+    "water": 1.33,
+};
+
 // demo of water block, to be replaced later
 const waterGeometry = new THREE.BoxGeometry(100,100,100);
-const waterMaterial = new THREE.MeshBasicMaterial( {color: 0x0000ff, transparent: true, opacity: 0.2} );
 
 const clock = new THREE.Clock();
 
@@ -50,7 +57,9 @@ function init() {
     camera.position.y = World.getY( worldHalfWidth, worldHalfDepth ) * 100 + 200;
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color( 0xbfd1e5 );
+
+    // add cube map
+    initCubeMap(scene, 'textures/cubeMaps/');
 
     initGeo();
 
@@ -64,9 +73,12 @@ function init() {
     geometry["Water"].computeBoundingSphere();
     geometry["GrassBlock"].computeVertexNormals();
 
+    // temp
+    let waterMaterial = initWaterMaterial(scene);
+
     material = {};
     material["GrassBlock"] = grassBlockMaterial;
-    material["Water"] = waterMaterial
+    material["Water"] = waterMaterial;
 
     mesh = {};
     mesh["GrassBlock"] = new THREE.Mesh( geometry["GrassBlock"], material["GrassBlock"] );
@@ -128,7 +140,7 @@ function init() {
     // scene.add( new THREE.CameraHelper( directionalLight.shadow.camera ) );
 
     // testing for sky
-    initSky();
+    // initSky();
 
     // connect controls
     controls = new MyMinecraftControls( camera, renderer.domElement, updateMeshCallback, updateSelectBlockCallback );
@@ -149,8 +161,6 @@ function init() {
 
     stats = new Stats();
     container.appendChild( stats.dom );
-
-    //
 
     window.addEventListener( 'resize', onWindowResize );
 
@@ -221,6 +231,36 @@ function initGeo(){
     nzGeometry.attributes.uv.array[7] = 1/3;
     nzGeometry.rotateY( Math.PI );
     nzGeometry.translate( 0, 0, - 50 );
+}
+
+function initCubeMap(scene, cubeMapDir) {
+    scene.background = new THREE.CubeTextureLoader()
+	.setPath( cubeMapDir )
+	.load( [
+		'posx.jpg',
+		'negx.jpg',
+		'posy.jpg',
+		'negy.jpg',
+		'posz.jpg',
+		'negz.jpg'
+	] );
+}
+
+function initWaterMaterial(scene) {
+    return new THREE.ShaderMaterial(
+        {
+            uniforms: {
+                time: { value: 1.0 },
+                eta: { value: refractiveIndex["air"] / refractiveIndex["water"] }, // unused
+                envMap: { value: scene.background },
+                normalMap: { value: new THREE.TextureLoader().load( 'textures/normalmap.png' ) },
+                waterTex: { value: new THREE.TextureLoader().load( 'textures/water3.png' ) },
+                flowMap: { value: new THREE.TextureLoader().load( 'textures/flowmap.jpg' ) }
+            },
+            vertexShader: waterVertexShader,
+            fragmentShader: waterFragShader,
+        }
+    );
 }
 
 function initSky(){
@@ -417,6 +457,8 @@ function animate() {
 
     render();
     stats.update();
+
+    mesh["Water"].material.uniforms.time.value += 0.005;
 
 }
 
