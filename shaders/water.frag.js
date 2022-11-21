@@ -1,10 +1,11 @@
 let waterFragShader = `
 
 uniform float time;
+uniform float n_air;
+uniform float n_water;
 uniform samplerCube envMap;
 uniform sampler2D waterTex;
 uniform sampler2D normalMap;
-uniform sampler2D flowMap;
 
 varying vec2 uVu;
 varying vec3 worldPosition;
@@ -47,16 +48,25 @@ void main() {
     // reflection to cube map
     vec3 reflectedRay = reflect(worldPosition.xyz - camPosition, normalMap_normal);
     reflectedRay.x = -reflectedRay.x;
-    vec3 reflectedColour = textureCube(envMap, reflectedRay).rgb;
-    gl_FragColor = vec4(reflectedColour, 1.0);
-
+    vec4 reflectedColour = vec4(textureCube(envMap, reflectedRay).rgb, 1.0) * 0.7;
     
     // add one more layer of reflection without normal map to make it look better
     reflectedRay = reflect(worldPosition.xyz - camPosition, N);
     reflectedRay.x = -reflectedRay.x;
-    reflectedColour = textureCube(envMap, reflectedRay).rgb;
-    gl_FragColor += vec4(reflectedColour, 1.0) * 0.3;
+    reflectedColour += vec4(textureCube(envMap, reflectedRay).rgb, 1.0) * 0.3;
 
+    // refraction
+    vec3 refractedRay = refract(worldPosition.xyz - camPosition, normalMap_normal, n_air/n_water);
+    refractedRay.x = -refractedRay.x;
+    vec4 refractedColour = vec4(textureCube(envMap, refractedRay).rgb, 1.0);
+
+    // Fresnel equation
+    float fresnelR0 = pow((n_air - n_water) / (n_air + n_water), 2.0);
+    float incidentDot = max(0.0, 1.0 - dot(normalMap_normal, normalize(camPosition - worldPosition.xyz)));
+    float reflectionCoefficient = fresnelR0 + (1.0 - fresnelR0) * pow(incidentDot, 5.0);
+    vec4 outputColour = reflectionCoefficient * reflectedColour + (1.0 - reflectionCoefficient) * refractedColour;
+    // gl_FragColor = outputColour; // looks not as good as reflectedColour
+    gl_FragColor = reflectedColour;
 
     // water texture
     vec4 waterTex = texture2D(waterTex, uVu);

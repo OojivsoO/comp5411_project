@@ -122,7 +122,7 @@ function init() {
     scene.add( ambientLight );
 
     const directionalLight = new THREE.DirectionalLight( 0xffffff, 1.3 );
-    let directionalLightSource = new Vector3(0,1,-1).normalize();
+    let directionalLightSource = new Vector3(0,1,1).normalize();
     let r = Math.sqrt(Math.pow(worldHalfWidth*100,2) + Math.pow(worldHalfDepth*100,2) + Math.pow(worldHalfHeight*100,2))
     directionalLightSource.multiplyScalar(r);
     directionalLight.position.set( directionalLightSource.x, directionalLightSource.y, directionalLightSource.z );
@@ -251,11 +251,12 @@ function initWaterMaterial(scene) {
         {
             uniforms: {
                 time: { value: 1.0 },
-                eta: { value: refractiveIndex["air"] / refractiveIndex["water"] }, // unused
+                n_air: { value: refractiveIndex["air"] },
+                n_water: { value: refractiveIndex["water"] },
                 envMap: { value: scene.background },
                 normalMap: { value: new THREE.TextureLoader().load( 'textures/normalmap.png' ) },
                 waterTex: { value: new THREE.TextureLoader().load( 'textures/water3.png' ) },
-                flowMap: { value: new THREE.TextureLoader().load( 'textures/flowmap.jpg' ) }
+                // flowMap: { value: new THREE.TextureLoader().load( 'textures/flowmap.jpg' ) }
             },
             vertexShader: waterVertexShader,
             fragmentShader: waterFragShader,
