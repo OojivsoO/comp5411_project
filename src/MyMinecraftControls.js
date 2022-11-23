@@ -325,7 +325,7 @@ class MyMinecraftControls extends EventDispatcher {
 				return World.isBlock(elem.blockId) && elem.dist<=maxCoorDist && !World.isBlock(adjBlockId);
 			})
 			candidates.sort((a,b)=>{
-				return a.dist<b.dist;
+				return a.dist-b.dist;
 			})
 
 			//console.log(candidates)
