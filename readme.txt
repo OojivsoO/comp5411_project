@@ -10,7 +10,6 @@ main.js
 - main.js: Modularized and greatly modified from the original code base (90+% is our implementation). Features are described in section 3.1.2 (dynamic geometry modeling), 3.2.1 (lighting and shadow).
 - shaders/water.vert.js: The vertex shader for water blocks.
 - shaders/water.frag.js: The fragment shader for water blocks. Features are described in section 3.2.
-...
 
 
 Instructions on how to run your program.
